@@ -3,6 +3,8 @@
   "version": "6.1.6",
   "description": "Python language support for the CodeMirror code editor",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
     "test": "cm-runtests",
     "prepare": "cm-buildhelper src/python.ts"
   },
@@ -26,14 +28,16 @@
   "sideEffects": false,
   "license": "MIT",
   "dependencies": {
-    "@codemirror/state": "^6.0.0",
+    "codemirror": "^6.0.1",
     "@codemirror/autocomplete": "^6.3.2",
     "@codemirror/language": "^6.8.0",
+    "@codemirror/state": "^6.0.0",
     "@lezer/common": "^1.2.1",
     "@lezer/python": "^1.1.4"
   },
   "devDependencies": {
-    "@codemirror/buildhelper": "^1.0.0"
+    "@codemirror/buildhelper": "^1.0.0",
+    "vite": "^6.0.7"
   },
   "repository": {
     "type": "git",
