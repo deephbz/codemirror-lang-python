@@ -1,32 +1,79 @@
 import {parser} from "@lezer/python"
-import {SyntaxNode} from "@lezer/common"
+import {SyntaxNode, Tree} from "@lezer/common"
 import {delimitedIndent, indentNodeProp, TreeIndentContext, 
         foldNodeProp, foldInside, LRLanguage, LanguageSupport} from "@codemirror/language"
 import {globalCompletion, localCompletionSource} from "./complete"
 export {globalCompletion, localCompletionSource}
 
-function innerBody(context: TreeIndentContext) {
-  let {node, pos} = context
-  let lineIndent = context.lineIndent(pos, -1)
-  let found = null
-  for (;;) {
-    let before = node.childBefore(pos)
-    if (!before) {
-      break
-    } else if (before.name == "Comment") {
-      pos = before.from
-    } else if (before.name == "Body" || before.name == "MatchBody") {
-      if (context.baseIndentFor(before) + context.unit <= lineIndent) found = before
-      node = before
-    } else if (before.name == "MatchClause") {
-      node = before
-    } else if (before.type.is("Statement")) {
-      node = before
-    } else {
-      break
+type NodeType = 'Body' | 'MatchBody' | 'Comment' | 'MatchClause' | 'Statement'
+
+interface IndentationState {
+  node: SyntaxNode
+  pos: number
+  found: SyntaxNode | null
+}
+
+// Predicate functions for node types
+const isBody = (node: SyntaxNode): boolean => 
+  node.name === 'Body' || node.name === 'MatchBody'
+
+const isComment = (node: SyntaxNode): boolean => 
+  node.name === 'Comment'
+
+const isMatchClause = (node: SyntaxNode): boolean =>
+  node.name === 'MatchClause'
+
+const isStatement = (node: SyntaxNode): boolean =>
+  node.type.is("Statement")
+
+// Pure function to process a single node in the tree traversal
+function processNode(state: IndentationState, context: TreeIndentContext): IndentationState {
+  const {node, pos} = state
+  const before = node.childBefore(pos)
+  
+  if (!before) return state
+  
+  const lineIndent = context.lineIndent(pos, -1)
+  const baseIndent = context.baseIndentFor(before) + context.unit
+
+  if (isComment(before)) {
+    return {...state, pos: before.from}
+  }
+  
+  if (isBody(before) && baseIndent <= lineIndent) {
+    return {
+      node: before,
+      pos: pos,
+      found: before
     }
   }
-  return found
+  
+  if (isMatchClause(before) || isStatement(before)) {
+    return {
+      node: before,
+      pos: pos,
+      found: state.found
+    }
+  }
+  
+  return state
+}
+
+function innerBody(context: TreeIndentContext) {
+  let state: IndentationState = {
+    node: context.node,
+    pos: context.pos,
+    found: null
+  }
+
+  // Process nodes until we can't anymore
+  while (true) {
+    const newState = processNode(state, context)
+    if (newState === state) break
+    state = newState
+  }
+
+  return state.found
 }
 
 function indentBody(context: TreeIndentContext, node: SyntaxNode) {
